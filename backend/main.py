@@ -119,7 +119,7 @@ def redirect_to_url(short_code: str, request: Request):
         os_name = user_agent.os.family
         referer = request.headers.get('referer', 'Directo')
         
-        # YA NO GUARDAMOS IP REAL (Ponemos "anónimo" para cumplir schema SQL)
+        # DE MOMENTO NO GUARDAMOS IP REAL 
         user_ip = "anónimo"
         
         insert_query = """
@@ -135,5 +135,5 @@ def redirect_to_url(short_code: str, request: Request):
         conn.close()
     
     # IMPORTANTE: status_code=302 fuerza al navegador a usar GET en la destino.
-    # Esto soluciona los errores de "Method Not Allowed".
+    # Esto soluciona posibles errores de "Method Not Allowed".
     return RedirectResponse(target_url, status_code=302)
