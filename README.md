@@ -118,7 +118,7 @@ El acceso externo se gestiona mediante **Cloudflare Zero Trust**, eliminando la 
 
 1. **Clonar el repositorio:**
    ```bash
-   git clone [https://github.com/digalox13/digalox-shortener.git](https://github.com/digalox13/digalox-shortener.git)
+   git clone https://github.com/digalox13/digalox-shortener.git
    cd digalox-shortener
    ```
 
