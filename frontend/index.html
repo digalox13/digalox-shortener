@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LinkAnalytics | Acortador Inteligente</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        body { background: #f3f4f6; font-family: 'Inter', sans-serif; }
+        .glass-card { background: white; border-radius: 1rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
+        .animate-fade-in { animation: fadeIn 0.5s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* MODAL */
+        .modal-overlay {
+            visibility: hidden;
+            opacity: 0;
+            position: fixed;
+            top: 0; 
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+
+        .modal-overlay.open {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .modal-box {
+            background: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            transform: scale(0.95) translateY(10px);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .modal-overlay.open .modal-box {
+            transform: scale(1) translateY(0);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <nav class="bg-white shadow-sm p-4 sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto flex justify-between items-center">
+            <div class="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                <i class="fas fa-network-wired text-blue-600"></i> DigaloX Shortener
+            </div>
+        </div>
+    </nav>
+
+    <main class="flex-1 max-w-6xl mx-auto w-full p-6 grid grid-cols-1 lg:grid-cols-2 gap-8 mt-6">
+        
+        <div class="space-y-6">
+            <div class="glass-card p-8 border-t-4 border-blue-500 animate-fade-in">
+                <h2 class="text-2xl font-bold mb-2 text-gray-800">Nuevo Enlace</h2>
+                <p class="text-gray-500 mb-6 text-sm">Acorta URLs y obtén estadísticas de uso.</p>
+                
+                <div class="relative group">
+                    <i class="fas fa-link absolute left-3 top-3.5 text-gray-400 group-focus-within:text-blue-500 transition"></i>
+                    <input type="url" id="originalUrl" placeholder="https://ejemplo.com/tu-enlace-largo" 
+                           class="w-full pl-10 p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition">
+                </div>
+                
+                <button onclick="shorten()" class="w-full mt-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 rounded-lg font-bold hover:opacity-90 transition shadow-lg transform active:scale-95">
+                    <i class="fas fa-magic mr-2"></i> Generar Enlace Corto
+                </button>
+
+                <div id="resultArea" class="hidden mt-6 bg-green-50 p-4 rounded-lg border border-green-100 animate-fade-in">
+                    <div class="flex justify-between items-start">
+                        <div class="overflow-hidden">
+                            <p class="text-xs text-green-600 font-bold uppercase tracking-wide">¡Listo para compartir!</p>
+                            <a id="shortLink" href="#" target="_blank" class="text-xl font-bold text-gray-800 hover:text-blue-600 break-all transition"></a>
+                        </div>
+                        <button onclick="copyLink()" class="ml-2 text-green-600 hover:text-green-800 transition p-2 hover:bg-green-100 rounded" title="Copiar">
+                            <i class="far fa-copy fa-lg"></i>
+                        </button>
+                    </div>
+                    <div class="mt-2 text-xs text-gray-500 flex items-center gap-2">
+                        <span>Código:</span>
+                        <span id="generatedCode" class="font-mono bg-white px-2 py-0.5 rounded border text-gray-800 font-bold"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-card p-8 border-t-4 border-purple-500 animate-fade-in" style="animation-delay: 0.1s;">
+                <h2 class="text-xl font-bold mb-4 text-gray-800">🔎 Analizar Código</h2>
+                <div class="flex gap-2">
+                    <input type="text" id="searchCode" placeholder="Ej: Xy7z99" 
+                           class="flex-1 p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none uppercase placeholder-gray-400">
+                    <button onclick="manualSearch()" class="bg-purple-100 text-purple-700 px-6 rounded-lg font-bold hover:bg-purple-200 transition">
+                        Ver Datos
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass-card p-0 overflow-hidden flex flex-col h-full relative">
+            <div id="emptyState" class="absolute inset-0 flex flex-col justify-center items-center text-center p-8 bg-white z-10">
+                <div class="bg-gray-100 p-6 rounded-full mb-4 animate-pulse">
+                    <i class="fas fa-chart-pie text-4xl text-gray-400"></i>
+                </div>
+                <h3 class="text-lg font-medium text-gray-600">Esperando datos...</h3>
+                <p class="text-gray-400 text-sm mt-2 max-w-xs">Genera un enlace o busca un código para ver las métricas.</p>
+            </div>
+
+            <div id="dashboard" class="p-6 hidden h-full flex flex-col">
+                <div class="flex justify-between items-center mb-6 pb-4 border-b">
+                    <h2 class="text-xl font-bold text-gray-800">Reporte: <span id="statsCode" class="text-blue-600 font-mono"></span></h2>
+                    <div class="flex items-center gap-2">
+                        <span class="relative flex h-3 w-3">
+                          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                          <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                        </span>
+                        <span class="text-xs text-gray-500 font-semibold">LIVE</span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 mb-6">
+                    <div class="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-xl text-center border border-blue-200">
+                        <p class="text-sm text-blue-600 uppercase font-bold tracking-wider mb-2">Total de Clics</p>
+                        <p id="totalClicks" class="text-5xl font-black text-gray-800">0</p>
+                    </div>
+                </div>
+
+                <div class="flex-1 min-h-[250px] relative">
+                    <canvas id="browserChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="errorModal" class="modal-overlay">
+        <div class="modal-box">
+            <div class="text-center mb-4">
+                <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 mb-4">
+                    <i class="fas fa-exclamation-triangle text-2xl text-red-600"></i>
+                </div>
+                <h3 class="text-xl font-bold text-gray-900">¡Atención!</h3>
+                <p id="modalMessage" class="text-gray-500 mt-2 text-sm">Error desconocido.</p>
+            </div>
+            <button onclick="cerrarModal()" class="w-full bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 transition duration-200">
+                Entendido
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api';
+        let refreshInterval = null; 
+        let myChart = null; 
+
+        window.onload = function() {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('error') === 'not_found') {
+                mostrarModal("El enlace corto no existe o fue eliminado.");
+                window.history.replaceState({}, document.title, "/");
+            }
+        }
+
+        async function shorten() {
+            const urlInput = document.getElementById('originalUrl');
+            const url = urlInput.value.trim();
+
+            if(!url) {
+                mostrarModal("Por favor escribe una URL válida.");
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/shorten`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({url: url})
+                });
+                
+                const data = await res.json();
+
+                if(!res.ok) {
+                    throw new Error(data.detail || "Error al procesar la solicitud.");
+                }
+                
+                const finalUrl = `${window.location.origin}/${data.short_code}`;
+                document.getElementById('shortLink').href = finalUrl;
+                document.getElementById('shortLink').innerText = finalUrl;
+                document.getElementById('generatedCode').innerText = data.short_code;
+                document.getElementById('resultArea').classList.remove('hidden');
+                
+                startLiveStats(data.short_code);
+                
+            } catch (e) {
+                mostrarModal(e.message || "No se pudo conectar con el servidor.");
+            }
+        }
+
+        function manualSearch() {
+            const code = document.getElementById('searchCode').value.trim();
+            if(code) {
+                startLiveStats(code);
+            } else {
+                mostrarModal("Introduce un código para buscar.");
+            }
+        }
+
+        function startLiveStats(code) {
+            if (refreshInterval) clearInterval(refreshInterval);
+
+            const fetchData = async () => {
+                try {
+                    const res = await fetch(`${API_BASE}/stats/${code}`);
+                    
+                    if(res.status === 404) {
+                        if(refreshInterval) clearInterval(refreshInterval);
+                        mostrarModal("El código no existe.");
+                        return;
+                    }
+                    if(!res.ok) return; 
+
+                    const data = await res.json();
+                    updateDashboardUI(code, data);
+                } catch (e) {
+                    console.error("Error:", e);
+                }
+            };
+
+            fetchData();
+            refreshInterval = setInterval(fetchData, 2000);
+        }
+
+        function updateDashboardUI(code, data) {
+            document.getElementById('emptyState').classList.add('hidden');
+            document.getElementById('dashboard').classList.remove('hidden');
+            
+            document.getElementById('statsCode').innerText = code;
+            document.getElementById('totalClicks').innerText = data.total_clicks;
+            // Se eliminó la actualización de IP
+
+            const labels = data.browsers.map(b => b.browser);
+            const values = data.browsers.map(b => b.count);
+
+            const ctx = document.getElementById('browserChart').getContext('2d');
+
+            if (!myChart) {
+                myChart = new Chart(ctx, {
+                    type: 'doughnut', 
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Visitas',
+                            data: values,
+                            backgroundColor: ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#6366f1'],
+                            borderWidth: 2,
+                            borderColor: '#ffffff'
+                        }]
+                    },
+                    options: { 
+                        responsive: true, 
+                        maintainAspectRatio: false,
+                        plugins: { legend: { position: 'bottom' } },
+                        animation: { duration: 1000 }
+                    }
+                });
+            } else {
+                myChart.data.labels = labels;
+                myChart.data.datasets[0].data = values;
+                myChart.update('none'); 
+            }
+        }
+
+        function copyLink() {
+            const text = document.getElementById('shortLink').innerText;
+            navigator.clipboard.writeText(text);
+            const btn = document.querySelector('button[title="Copiar"] i');
+            btn.className = "fas fa-check text-green-600";
+            setTimeout(() => btn.className = "far fa-copy fa-lg", 1500);
+        }
+
+        // --- FUNCIONES DEL MODAL ---
+        function mostrarModal(mensaje) {
+            const modal = document.getElementById('errorModal');
+            document.getElementById('modalMessage').innerText = mensaje;
+            modal.classList.add('open');
+        }
+
+        function cerrarModal() {
+            const modal = document.getElementById('errorModal');
+            modal.classList.remove('open');
+        }
+
+        document.getElementById('errorModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                cerrarModal();
+            }
+        });
+    </script>
+</body>
+</html>
